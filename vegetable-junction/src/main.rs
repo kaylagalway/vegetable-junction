@@ -34,24 +34,36 @@ enum State {
 }
 
 struct Player {
-    size: [f64; 2],
-    location: [f64; 2], // (x, y)
+    size: (f64, f64),
+    location: (f64, f64), // (x, y)
     color: Colour,
 }
 
 impl Player {
-    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event) {
+    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event, movement: Option<(f64, f64)>) {
         window.draw_2d(event, |context, graphics, _| {
-            let mut draw = |color, rect: [f64; 4]| {
-                Rectangle::new(color).draw(rect, &DrawState::default(), context.transform, graphics);
-            };
-            clear(GREEN, graphics);
-            rectangle(RED, // red
-                        [50.0, 50.0, 100.0, 100.0],
-                        context.transform,
-                        graphics);
+            // if let movement = Some(movement) {
+
+            // } else {
+                let mut draw = |color, rect: [f64; 4]| {
+                    Rectangle::new(color).draw(rect, &DrawState::default(), context.transform, graphics);
+                };
+                clear(GREEN, graphics);
+                rectangle(RED, // red
+                            [self.location.0, self.location.1, self.size.0, self.size.1],
+                            context.transform,
+                            graphics);
+            // }
         });
     }
+
+    fn on_press(args: &Button, location: (f64, f64)) -> Option<(f64, f64)> {
+        match args {
+            Button::Keyboard(args) => on_key(args, location),
+            _ => None,
+        }
+    }
+
 }
 
 fn main() {
@@ -66,47 +78,30 @@ fn main() {
     };
 
     let player = Player {
-        size: [50.0; 2],
-        location: [0.0; 2],
+        size: (50.0, 50.0),
+        location: (0.0, 0.0),
         color: RED,
     };
 
     while let Some(e) = window.next() {
         // game.progress();
-        player.render(&metrics, &mut window, &e);
+        player.render(&metrics, &mut window, &e, None);
 
         if let Some(_) = e.render_args() {
-            player.render(&metrics, &mut window, &e);
+            player.render(&metrics, &mut window, &e, None);
         }
 
         if let Some(args) = e.press_args() {
-            on_press(&args);
-            // game.on_press(&args);
-        }
-    }
-
-    //This would handle keyboard arrow interaction I believe
-    /*
-    if let Some(k) = e.button_args() {
-        if k.state == ButtonState::Press {
-
-            match k.button {
-                Button::Keyboard(Key::Up) => player.y -= PIXEL_SIZE as i32,
-                Button::Keyboard(Key::Down) => player.y += PIXEL_SIZE as i32,
-                Button::Keyboard(Key::Left) => player.x -= PIXEL_SIZE as i32,
-                Button::Keyboard(Key::Right) => player.x += PIXEL_SIZE as i32,
-                _ => (),
+            if let movement = on_press(&args) {
+                player.render(&metrics, &mut window, &e, movement);
             }
-
         }
     }
-    */
 }
 
 fn on_press(args: &Button, location: (f64, f64)) -> Option<(f64, f64)> {
     match args {
         Button::Keyboard(args) => on_key(args, location),
-        // Button::Keyboard(key) => { self.on_key(key); }
         _ => None,
     }
 }
