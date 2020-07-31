@@ -23,8 +23,10 @@ struct Metrics {
 
 impl Metrics {
     fn resolution(&self) -> [u32; 2] {
-        [(self.board_x * self.block_pixels) as u32,
-         (self.board_y * self.block_pixels) as u32]
+        [
+            (self.board_x * self.block_pixels) as u32,
+            (self.board_y * self.block_pixels) as u32,
+        ]
     }
 }
 
@@ -33,43 +35,51 @@ enum State {
     Standing,
 }
 
+enum Shape {
+    Rectangle { width: f64, height: f64 },
+    Circle { radius: f64 },
+}
+
 struct Player {
+    shape: Shape,
     size: (f64, f64),
     location: (f64, f64), // (x, y)
     color: Colour,
 }
 
 impl Player {
-    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event, movement: Option<(f64, f64)>) {
+    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event) {
+        // println!("Entered render function");
         window.draw_2d(event, |context, graphics, _| {
-            // if let movement = Some(movement) {
-
-            // } else {
-                let mut draw = |color, rect: [f64; 4]| {
-                    Rectangle::new(color).draw(rect, &DrawState::default(), context.transform, graphics);
-                };
-                clear(GREEN, graphics);
-                rectangle(RED, // red
-                            [self.location.0, self.location.1, self.size.0, self.size.1],
-                            context.transform,
-                            graphics);
-            // }
+            // println!("entering draw2d");
+            clear(GREEN, graphics);
+            match self.shape {
+                Shape::Circle { radius } => {
+                    ellipse(
+                        self.color,
+                        ellipse::circle(self.location.0, self.location.1, radius),
+                        context.transform,
+                        graphics,
+                    );
+                }
+                Shape::Rectangle { width, height } => {
+                    rectangle(
+                        self.color,
+                        [self.location.0, self.location.1, width, height],
+                        context.transform,
+                        graphics,
+                    );
+                }
+            };
         });
     }
-
-    fn on_press(args: &Button, location: (f64, f64)) -> Option<(f64, f64)> {
-        match args {
-            Button::Keyboard(args) => on_key(args, location),
-            _ => None,
-        }
-    }
-
 }
 
 fn main() {
-    let mut window: PistonWindow =
-        WindowSettings::new("Hello Piston!", [640, 480])
-        .exit_on_esc(true).build().unwrap();
+    let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [640, 480])
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
 
     let metrics = Metrics {
         block_pixels: 20,
@@ -77,36 +87,47 @@ fn main() {
         board_y: 20,
     };
 
-    let player = Player {
+    let mut player = Player {
+        shape: Shape::Circle { radius: 50.0 },
         size: (50.0, 50.0),
         location: (0.0, 0.0),
         color: RED,
     };
 
     while let Some(e) = window.next() {
-        // game.progress();
-        player.render(&metrics, &mut window, &e, None);
-
         if let Some(_) = e.render_args() {
-            player.render(&metrics, &mut window, &e, None);
+            player.render(&metrics, &mut window, &e);
         }
 
         if let Some(args) = e.press_args() {
-            if let movement = on_press(&args) {
-                player.render(&metrics, &mut window, &e, movement);
+            if let Some(movement) = on_press(&args) {
+                println!("Key registered as arrow key, movement: {:?}", movement);
+                println!(
+                    "movement successfully unwrapped, current play location: {:?}",
+                    player.location
+                );
+                let x = player.location.0 + (movement.0 * player.size.0);
+                let y = player.location.1 + (movement.1 * player.size.1);
+                player.location = (x, y);
+                println!(
+                    "movement changed location. new location: {:?}",
+                    player.location
+                );
             }
         }
     }
 }
 
-fn on_press(args: &Button, location: (f64, f64)) -> Option<(f64, f64)> {
+fn on_press(args: &Button) -> Option<(f64, f64)> {
+    println!("Entered on_press function");
     match args {
-        Button::Keyboard(args) => on_key(args, location),
+        Button::Keyboard(args) => on_key(args),
         _ => None,
     }
 }
 
-fn on_key(key: &Key, location: (f64, f64)) -> Option<(f64, f64)> {
+fn on_key(key: &Key) -> Option<(f64, f64)> {
+    println!("Entered on_key function");
     match key {
         Key::Right => Some((1.0, 0.0)),
         Key::Left => Some((-1.0, 0.0)),
@@ -115,5 +136,3 @@ fn on_key(key: &Key, location: (f64, f64)) -> Option<(f64, f64)> {
         _ => None,
     }
 }
-
-
