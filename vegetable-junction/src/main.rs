@@ -35,25 +35,35 @@ enum State {
     Standing,
 }
 
+// Represents shape to be rendered on the board
+// Cases are rectangle and circle, with measurement parameters attached for those shapes
 enum Shape {
     Rectangle { width: f64, height: f64 },
     Circle { radius: f64 },
 }
 
+// Player struct
+// Parameters:
+    // shape: shape of character, can currently be circle or rectangle
+    // size: size of character (width, height)
+    // location: coordinates of character (x, y)
+    // color: color of character 
 struct Player {
     shape: Shape,
     size: (f64, f64),
-    location: (f64, f64), // (x, y)
+    location: (f64, f64),
     color: Colour,
 }
 
 impl Player {
+
+    // Render function checks arguments and events and changes display based on this
     fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event) {
-        // println!("Entered render function");
         window.draw_2d(event, |context, graphics, _| {
-            // println!("entering draw2d");
             clear(GREEN, graphics);
             match self.shape {
+                // Checks shape of player and adds it to board accordingly
+                // Currently only options are Circle and Square players
                 Shape::Circle { radius } => {
                     ellipse(
                         self.color,
@@ -76,17 +86,20 @@ impl Player {
 }
 
 fn main() {
+    // Piston game window initialization
     let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [640, 480])
         .exit_on_esc(true)
         .build()
         .unwrap();
 
+    // Metricks object for render function
     let metrics = Metrics {
         block_pixels: 20,
         board_x: 8,
         board_y: 20,
     };
 
+    // Currently just have one player for setup purposes, eventually there should be more and this can be moved
     let mut player = Player {
         shape: Shape::Circle { radius: 50.0 },
         size: (50.0, 50.0),
@@ -94,11 +107,15 @@ fn main() {
         color: RED,
     };
 
+    // Runloop of constant events sent from piston game engine
     while let Some(e) = window.next() {
+        // This will be consistently called on the event run loop
         if let Some(_) = e.render_args() {
+            // Render consistently checks for player/game updates and renders the screen layout accordingly
             player.render(&metrics, &mut window, &e);
         }
 
+        // This checks for user interaction and presses that may adjust the graphics
         if let Some(args) = e.press_args() {
             if let Some(movement) = on_press(&args) {
                 println!("Key registered as arrow key, movement: {:?}", movement);
@@ -118,6 +135,8 @@ fn main() {
     }
 }
 
+// Handles all press interactions and returns Tuple of (x, y) coordinate changes if character requires movement
+// In the future could return an enum of character reaction, if something different than key arrows was pressed
 fn on_press(args: &Button) -> Option<(f64, f64)> {
     println!("Entered on_press function");
     match args {
@@ -126,6 +145,8 @@ fn on_press(args: &Button) -> Option<(f64, f64)> {
     }
 }
 
+// Specifically handles keyboard presses and returns tuple of (x, y) coordinate changes for character movement
+// Currently only handling arrow keys
 fn on_key(key: &Key) -> Option<(f64, f64)> {
     println!("Entered on_key function");
     match key {
