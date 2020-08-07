@@ -30,11 +30,6 @@ impl Metrics {
     }
 }
 
-enum State {
-    Walking,
-    Standing,
-}
-
 // Represents shape to be rendered on the board
 // Cases are rectangle and circle, with measurement parameters attached for those shapes
 enum Shape {
@@ -85,6 +80,83 @@ impl Player {
     }
 }
 
+enum PlayerState {
+    Walking,
+    Standing,
+}
+
+enum SceneryType {
+    Tree,
+}
+
+struct Scenery {
+    type_: SceneryType,
+    location: (f64, f64)
+}
+
+enum GameState {
+    Start
+}
+
+struct Game {
+    players: Vec<Player>,
+    scenery: Vec<Scenery>,
+}
+
+impl Game {
+    fn display_items(state: GameState) -> Self {
+        match state {
+            GameState::Start => {
+              // Currently just have one player for setup purposes, eventually there should be more and this can be moved
+              let mut player = Player {
+                  shape: Shape::Circle { radius: 50.0 },
+                  size: (50.0, 50.0),
+                  location: (0.0, 0.0),
+                  color: RED,
+              };
+              return Game {
+                  players: vec![player],
+                  scenery: Vec::new()
+              }
+            }
+        }
+    }
+
+    // Render function checks arguments and events and changes display based on this
+    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event) {
+        window.draw_2d(event, |context, graphics, _| {
+            clear(GREEN, graphics);
+            for player in self.players {
+                self.render_player(player, context, graphics);
+            }
+        });
+    }
+
+    fn render_player(&self, player: Player, context: Context, graphics: &mut G2d) {
+        match player.shape {
+            // Checks shape of player and adds it to board accordingly
+            // Currently only options are Circle and Square players
+            Shape::Circle { radius } => {
+                ellipse(
+                    player.color,
+                    ellipse::circle(player.location.0, player.location.1, radius),
+                    context.transform,
+                    graphics,
+                );
+            }
+            Shape::Rectangle { width, height } => {
+                rectangle(
+                    player.color,
+                    [player.location.0, player.location.1, width, height],
+                    context.transform,
+                    graphics,
+                );
+            }
+        };
+    }
+
+}
+
 fn main() {
     // Piston game window initialization
     let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [640, 480])
@@ -99,20 +171,15 @@ fn main() {
         board_y: 20,
     };
 
-    // Currently just have one player for setup purposes, eventually there should be more and this can be moved
-    let mut player = Player {
-        shape: Shape::Circle { radius: 50.0 },
-        size: (50.0, 50.0),
-        location: (0.0, 0.0),
-        color: RED,
-    };
+    //Setup new game
+    let game = Game::display_items(GameState::Start);
 
     // Runloop of constant events sent from piston game engine
     while let Some(e) = window.next() {
         // This will be consistently called on the event run loop
         if let Some(_) = e.render_args() {
             // Render consistently checks for player/game updates and renders the screen layout accordingly
-            player.render(&metrics, &mut window, &e);
+            game.render(&metrics, &mut window, &e);
         }
 
         // This checks for user interaction and presses that may adjust the graphics
