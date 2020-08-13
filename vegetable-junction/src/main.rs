@@ -39,10 +39,10 @@ enum Shape {
 
 // Player struct
 // Parameters:
-    // shape: shape of character, can currently be circle or rectangle
-    // size: size of character (width, height)
-    // location: coordinates of character (x, y)
-    // color: color of character 
+// shape: shape of character, can currently be circle or rectangle
+// size: size of character (width, height)
+// location: coordinates of character (x, y)
+// color: color of character
 struct Player {
     shape: Shape,
     size: (f64, f64),
@@ -51,9 +51,8 @@ struct Player {
 }
 
 impl Player {
-
     // Render function checks arguments and events and changes display based on this
-    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event) {
+    fn render(&self, window: &mut PistonWindow, event: &Event) {
         window.draw_2d(event, |context, graphics, _| {
             clear(GREEN, graphics);
             match self.shape {
@@ -91,15 +90,16 @@ enum SceneryType {
 
 struct Scenery {
     type_: SceneryType,
-    location: (f64, f64)
+    location: (f64, f64),
 }
 
 enum GameState {
-    Start
+    Start,
 }
 
 struct Game {
-    players: Vec<Player>,
+    user_player: Player,
+    other_players: Vec<Player>,
     scenery: Vec<Scenery>,
 }
 
@@ -107,32 +107,34 @@ impl Game {
     fn display_items(state: GameState) -> Self {
         match state {
             GameState::Start => {
-              // Currently just have one player for setup purposes, eventually there should be more and this can be moved
-              let mut player = Player {
-                  shape: Shape::Circle { radius: 50.0 },
-                  size: (50.0, 50.0),
-                  location: (0.0, 0.0),
-                  color: RED,
-              };
-              return Game {
-                  players: vec![player],
-                  scenery: Vec::new()
-              }
+                // Currently just have one player for setup purposes, eventually there should be more and this can be moved
+                let mut player = Player {
+                    shape: Shape::Circle { radius: 50.0 },
+                    size: (50.0, 50.0),
+                    location: (0.0, 0.0),
+                    color: RED,
+                };
+                return Game {
+                    user_player: player,
+                    other_players: Vec::new(),
+                    scenery: Vec::new(),
+                };
             }
         }
     }
 
     // Render function checks arguments and events and changes display based on this
-    fn render(&self, metrics: &Metrics, window: &mut PistonWindow, event: &Event) {
+    fn render(&self, window: &mut PistonWindow, event: &Event) {
         window.draw_2d(event, |context, graphics, _| {
             clear(GREEN, graphics);
-            for player in self.players {
-                self.render_player(player, context, graphics);
+            self.render_player(&self.user_player, context, graphics);
+            for player in &self.other_players {
+                self.render_player(&player, context, graphics);
             }
         });
     }
 
-    fn render_player(&self, player: Player, context: Context, graphics: &mut G2d) {
+    fn render_player(&self, player: &Player, context: Context, graphics: &mut G2d) {
         match player.shape {
             // Checks shape of player and adds it to board accordingly
             // Currently only options are Circle and Square players
@@ -154,7 +156,6 @@ impl Game {
             }
         };
     }
-
 }
 
 fn main() {
@@ -164,22 +165,15 @@ fn main() {
         .build()
         .unwrap();
 
-    // Metricks object for render function
-    let metrics = Metrics {
-        block_pixels: 20,
-        board_x: 8,
-        board_y: 20,
-    };
-
     //Setup new game
-    let game = Game::display_items(GameState::Start);
+    let mut game = Game::display_items(GameState::Start);
 
     // Runloop of constant events sent from piston game engine
     while let Some(e) = window.next() {
         // This will be consistently called on the event run loop
         if let Some(_) = e.render_args() {
             // Render consistently checks for player/game updates and renders the screen layout accordingly
-            game.render(&metrics, &mut window, &e);
+            game.render(&mut window, &e);
         }
 
         // This checks for user interaction and presses that may adjust the graphics
@@ -188,14 +182,14 @@ fn main() {
                 println!("Key registered as arrow key, movement: {:?}", movement);
                 println!(
                     "movement successfully unwrapped, current play location: {:?}",
-                    player.location
+                    game.user_player.location
                 );
-                let x = player.location.0 + (movement.0 * player.size.0);
-                let y = player.location.1 + (movement.1 * player.size.1);
-                player.location = (x, y);
+                let x = game.user_player.location.0 + (movement.0 * game.user_player.size.0);
+                let y = game.user_player.location.1 + (movement.1 * game.user_player.size.1);
+                game.user_player.location = (x, y);
                 println!(
                     "movement changed location. new location: {:?}",
-                    player.location
+                    game.user_player.location
                 );
             }
         }
