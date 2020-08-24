@@ -16,22 +16,17 @@ const WORLD_SIZE: i32 = WINDOW_SIZE / PIXEL_SIZE as i32;
 
 #[derive(Default)]
 struct Metrics {
-    block_pixels: usize,
-    board_x: usize,
-    board_y: usize,
+    width: f64,
+    height: f64,
 }
 
 impl Metrics {
-    fn resolution(&self) -> [u32; 2] {
-        [
-            (self.board_x * self.block_pixels) as u32,
-            (self.board_y * self.block_pixels) as u32,
-        ]
-    }
+    // ...
 }
 
 // Represents shape to be rendered on the board
 // Cases are rectangle and circle, with measurement parameters attached for those shapes
+#[derive(Clone)]
 enum Shape {
     Rectangle { width: f64, height: f64 },
     Circle { radius: f64 },
@@ -43,39 +38,47 @@ enum Shape {
 // size: size of character (width, height)
 // location: coordinates of character (x, y)
 // color: color of character
-struct Player {
+#[derive(Clone)]
+struct Player<'a> {
     shape: Shape,
     size: (f64, f64),
     location: (f64, f64),
     color: Colour,
+    metrics: &'a Metrics,
 }
 
-impl Player {
-    // Render function checks arguments and events and changes display based on this
-    fn render(&self, window: &mut PistonWindow, event: &Event) {
-        window.draw_2d(event, |context, graphics, _| {
-            clear(GREEN, graphics);
-            match self.shape {
-                // Checks shape of player and adds it to board accordingly
-                // Currently only options are Circle and Square players
-                Shape::Circle { radius } => {
-                    ellipse(
-                        self.color,
-                        ellipse::circle(self.location.0, self.location.1, radius),
-                        context.transform,
-                        graphics,
-                    );
-                }
-                Shape::Rectangle { width, height } => {
-                    rectangle(
-                        self.color,
-                        [self.location.0, self.location.1, width, height],
-                        context.transform,
-                        graphics,
-                    );
-                }
-            };
-        });
+fn clamp(value: f64, min: f64, max: f64) -> f64 {
+    if value < min {
+        min
+    } else if value > max {
+        max
+    } else {
+        value
+    }
+}
+
+impl<'a> Player<'a> {
+    fn render(&self, context: Context, graphics: &mut G2d) {
+        match self.shape {
+            // Checks shape of player and adds it to board accordingly
+            // Currently only options are Circle and Square players
+            Shape::Circle { radius } => {
+                ellipse(
+                    self.color,
+                    ellipse::circle(self.location.0, self.location.1, radius),
+                    context.transform,
+                    graphics,
+                );
+            }
+            Shape::Rectangle { width, height } => {
+                rectangle(
+                    self.color,
+                    [self.location.0, self.location.1, width, height],
+                    context.transform,
+                    graphics,
+                );
+            }
+        }
     }
 }
 
@@ -85,7 +88,11 @@ enum PlayerState {
 }
 
 enum SceneryType {
-    Tree,
+    Tree {
+        base_width: f64,
+        base_height: f64,
+        top_radius: f64,
+    },
 }
 
 struct Scenery {
@@ -93,31 +100,151 @@ struct Scenery {
     location: (f64, f64),
 }
 
+#[derive(Copy, Clone)]
+struct Circle {
+    x: f64,
+    y: f64,
+    radius: f64,
+}
+
+impl Circle {
+    fn collides_with_rectangle(self, rect: Rectangle) -> bool {
+        // http://www.jeffreythompson.org/collision-detection/circle-rect.php
+        let test_x = if self.x < rect.x {
+            rect.x
+        } else if self.x > rect.x + rect.width {
+            rect.x + rect.width
+        } else {
+            self.x
+        };
+        let test_y = if self.y < rect.y {
+            rect.y
+        } else if self.y > rect.y + rect.height {
+            rect.y + rect.height
+        } else {
+            self.y
+        };
+        let dist_x = self.x - test_x;
+        let dist_y = self.y - test_y;
+        let distance = ((dist_x * dist_x) + (dist_y * dist_y)).sqrt();
+        distance <= self.radius
+    }
+
+    fn collides_with_circle(self, circle: Circle) -> bool {
+        // http://www.jeffreythompson.org/collision-detection/circle-circle.php
+        let dist_x = self.x - circle.x;
+        let dist_y = self.y - circle.y;
+        let distance = ((dist_x * dist_x) + (dist_y * dist_y)).sqrt();
+        distance <= (self.radius + circle.radius)
+    }
+}
+
+#[derive(Copy, Clone)]
+struct Rectangle {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+impl Scenery {
+    fn collides(&self, player: &Player<'_>) -> bool {
+        match self.type_ {
+            SceneryType::Tree {
+                base_width,
+                base_height,
+                top_radius,
+            } => match player.shape {
+                Shape::Circle { radius } => {
+                    let player_circle = Circle {
+                        x: player.location.0,
+                        y: player.location.1,
+                        radius,
+                    };
+                    let top_circle = Circle {
+                        x: self.location.0 + (base_width / 2.0),
+                        y: self.location.1 - top_radius + 5.0,
+                        radius: top_radius,
+                    };
+                    let base_rect = Rectangle {
+                        x: self.location.0,
+                        y: self.location.1,
+                        width: base_width,
+                        height: base_height,
+                    };
+                    player_circle.collides_with_rectangle(base_rect)
+                        || player_circle.collides_with_circle(top_circle)
+                }
+                Shape::Rectangle { .. } => {
+                    // Temporary placeholder until we add a rectangle player
+                    false
+                }
+            },
+        }
+    }
+
+    fn render(&self, context: Context, graphics: &mut G2d) {
+        match self.type_ {
+            SceneryType::Tree {
+                base_width,
+                base_height,
+                top_radius,
+            } => {
+                rectangle(
+                    BLACK,
+                    [self.location.0, self.location.1, base_width, base_height],
+                    context.transform,
+                    graphics,
+                );
+                let top_x = self.location.0 + (base_width / 2.0);
+                let top_y = self.location.1 - top_radius + 5.0;
+                ellipse(
+                    BLUE,
+                    ellipse::circle(top_x, top_y, top_radius),
+                    context.transform,
+                    graphics,
+                );
+            }
+        }
+    }
+}
+
 enum GameState {
     Start,
 }
 
-struct Game {
-    user_player: Player,
-    other_players: Vec<Player>,
+struct Game<'a> {
+    user_player: Player<'a>,
+    other_players: Vec<Player<'a>>,
     scenery: Vec<Scenery>,
+    metrics: &'a Metrics,
 }
 
-impl Game {
-    fn display_items(state: GameState) -> Self {
+impl<'a> Game<'a> {
+    fn display_items(state: GameState, metrics: &'a Metrics) -> Self {
         match state {
             GameState::Start => {
                 // Currently just have one player for setup purposes, eventually there should be more and this can be moved
-                let mut player = Player {
+                let player = Player {
                     shape: Shape::Circle { radius: 50.0 },
                     size: (50.0, 50.0),
-                    location: (0.0, 0.0),
+                    location: (50.0, 50.0),
                     color: RED,
+                    metrics,
+                };
+                let tree = Scenery {
+                    type_: SceneryType::Tree {
+                        base_width: 45.0,
+                        base_height: 120.0,
+                        top_radius: 60.0,
+                    },
+                    location: (500.0, 600.0),
                 };
                 return Game {
                     user_player: player,
                     other_players: Vec::new(),
-                    scenery: Vec::new(),
+                    scenery: vec![tree],
+                    metrics,
                 };
             }
         }
@@ -127,46 +254,62 @@ impl Game {
     fn render(&self, window: &mut PistonWindow, event: &Event) {
         window.draw_2d(event, |context, graphics, _| {
             clear(GREEN, graphics);
-            self.render_player(&self.user_player, context, graphics);
+            self.user_player.render(context, graphics);
             for player in &self.other_players {
-                self.render_player(&player, context, graphics);
+                player.render(context, graphics);
+            }
+            for scene in &self.scenery {
+                scene.render(context, graphics);
             }
         });
     }
 
-    fn render_player(&self, player: &Player, context: Context, graphics: &mut G2d) {
-        match player.shape {
-            // Checks shape of player and adds it to board accordingly
-            // Currently only options are Circle and Square players
-            Shape::Circle { radius } => {
-                ellipse(
-                    player.color,
-                    ellipse::circle(player.location.0, player.location.1, radius),
-                    context.transform,
-                    graphics,
-                );
-            }
-            Shape::Rectangle { width, height } => {
-                rectangle(
-                    player.color,
-                    [player.location.0, player.location.1, width, height],
-                    context.transform,
-                    graphics,
-                );
-            }
+    fn move_player(&self, player: &Player<'_>, movement: (f64, f64)) -> Option<(f64, f64)> {
+        let (min_x, max_x) = match player.shape {
+            Shape::Circle { radius } => (radius, self.metrics.width - radius),
+            Shape::Rectangle { .. } => unimplemented!("Add later"),
         };
+        let (min_y, max_y) = match player.shape {
+            Shape::Circle { radius } => (radius, self.metrics.height - radius),
+            Shape::Rectangle { .. } => unimplemented!("Add later"),
+        };
+        let x = clamp(
+            player.location.0 + (movement.0 * player.size.0),
+            min_x,
+            max_x,
+        );
+        let y = clamp(
+            player.location.1 + (movement.1 * player.size.1),
+            min_y,
+            max_y,
+        );
+        let future_player = Player {
+            location: (x, y),
+            ..player.clone()
+        };
+        for scenery in &self.scenery {
+            if scenery.collides(&future_player) {
+                return None;
+            }
+        }
+        Some((x, y))
     }
 }
 
 fn main() {
     // Piston game window initialization
-    let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [640, 480])
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
+    let metrics = Metrics {
+        width: 1500.0,
+        height: 900.0,
+    };
+    let mut window: PistonWindow =
+        WindowSettings::new("Hello Piston!", [metrics.width, metrics.height])
+            .exit_on_esc(true)
+            .build()
+            .unwrap();
 
     //Setup new game
-    let mut game = Game::display_items(GameState::Start);
+    let mut game = Game::display_items(GameState::Start, &metrics);
 
     // Runloop of constant events sent from piston game engine
     while let Some(e) = window.next() {
@@ -184,9 +327,9 @@ fn main() {
                     "movement successfully unwrapped, current play location: {:?}",
                     game.user_player.location
                 );
-                let x = game.user_player.location.0 + (movement.0 * game.user_player.size.0);
-                let y = game.user_player.location.1 + (movement.1 * game.user_player.size.1);
-                game.user_player.location = (x, y);
+                if let Some(new_location) = game.move_player(&game.user_player, movement) {
+                    game.user_player.location = new_location;
+                }
                 println!(
                     "movement changed location. new location: {:?}",
                     game.user_player.location
