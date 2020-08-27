@@ -3,6 +3,7 @@ extern crate rand;
 
 use piston_window::*;
 use rand::Rng;
+use std::cell::RefCell;
 
 type Colour = [f32; 4];
 
@@ -220,7 +221,7 @@ enum GameState {
 struct Game<'a> {
     user_player: Player<'a>,
     other_players: Vec<Player<'a>>,
-    scenery: Vec<Scenery>,
+    scenery: RefCell<Vec<Scenery>>,
     metrics: &'a Metrics,
 }
 
@@ -247,7 +248,7 @@ impl<'a> Game<'a> {
                 return Game {
                     user_player: player,
                     other_players: Vec::new(),
-                    scenery: vec![tree],
+                    scenery: RefCell::new(vec![tree]),
                     metrics,
                 };
             }
@@ -262,7 +263,7 @@ impl<'a> Game<'a> {
             for player in &self.other_players {
                 player.render(context, graphics);
             }
-            for scene in &self.scenery {
+            for scene in &*self.scenery.borrow() {
                 scene.render(context, graphics);
             }
         });
@@ -291,7 +292,7 @@ impl<'a> Game<'a> {
             location: (x, y),
             ..player.clone()
         };
-        for scenery in &self.scenery {
+        for scenery in &*self.scenery.borrow() {
             if scenery.collides(&future_player) {
                 return None;
             }
@@ -349,7 +350,7 @@ impl<'a> Game<'a> {
             type_: sceneryType,
             location: location,
         };
-        self.scenery.push(scenery);
+        self.scenery.borrow_mut().push(scenery);
     }
 }
 
