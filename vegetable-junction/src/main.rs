@@ -1,6 +1,9 @@
 extern crate piston_window;
+extern crate rand;
 
 use piston_window::*;
+use rand::Rng;
+use std::cell::RefCell;
 
 type Colour = [f32; 4];
 
@@ -13,6 +16,9 @@ const BLACK: Colour = [0.0, 0.0, 0.0, 1.0];
 const WINDOW_SIZE: i32 = 512;
 const PIXEL_SIZE: f64 = 32.0;
 const WORLD_SIZE: i32 = WINDOW_SIZE / PIXEL_SIZE as i32;
+
+const WINDOW_WIDTH: f64 = 1500.0;
+const WINDOW_HEIGHT: f64 = 900.0;
 
 #[derive(Default)]
 struct Metrics {
@@ -216,7 +222,7 @@ enum GameState {
 struct Game<'a> {
     user_player: Player<'a>,
     other_players: Vec<Player<'a>>,
-    scenery: Vec<Scenery>,
+    scenery: RefCell<Vec<Scenery>>,
     metrics: &'a Metrics,
 }
 
@@ -243,7 +249,7 @@ impl<'a> Game<'a> {
                 return Game {
                     user_player: player,
                     other_players: Vec::new(),
-                    scenery: vec![tree],
+                    scenery: RefCell::new(vec![tree]),
                     metrics,
                 };
             }
@@ -258,7 +264,7 @@ impl<'a> Game<'a> {
             for player in &self.other_players {
                 player.render(context, graphics);
             }
-            for scene in &self.scenery {
+            for scene in &*self.scenery.borrow() {
                 scene.render(context, graphics);
             }
         });
@@ -287,20 +293,69 @@ impl<'a> Game<'a> {
             location: (x, y),
             ..player.clone()
         };
-        for scenery in &self.scenery {
+        for scenery in &*self.scenery.borrow() {
             if scenery.collides(&future_player) {
                 return None;
             }
         }
         Some((x, y))
     }
+
+    // Handles all press interactions and returns Tuple of (x, y) coordinate changes if character requires movement
+    // In the future could return an enum of character reaction, if something different than key arrows was pressed
+    fn on_press(&self, args: &Button) -> Option<(f64, f64)> {
+        println!("Entered on_press function");
+        match args {
+            Button::Keyboard(args) => self.on_key(args),
+            _ => None,
+        }
+    }
+
+    // Specifically handles keyboard presses and returns tuple of (x, y) coordinate changes for character movement
+    // Currently only handling arrow keys
+    fn on_key(&self, key: &Key) -> Option<(f64, f64)> {
+        println!("Entered on_key function");
+        match key {
+            Key::Right => Some((1.0, 0.0)),
+            Key::Left => Some((-1.0, 0.0)),
+            Key::Up => Some((0.0, -1.0)),
+            Key::Down => Some((0.0, 1.0)),
+            _ => {
+                if (Key::A..=Key::Z).contains(key) {
+                    self.handle_letter(key)
+                }
+                None
+            }
+        }
+    }
+
+    fn handle_letter(&self, key: &Key) {
+        //plant tree in random location on board
+        let mut rng = rand::thread_rng();
+        let ran_x = rng.gen_range(100.0, WINDOW_WIDTH - 100.0);
+        let ran_y = rng.gen_range(100.0, WINDOW_HEIGHT - 100.0);
+        let scene_type = SceneryType::Tree {
+            base_width: 45.0,
+            base_height: 120.0,
+            top_radius: 60.0,
+        };
+        &self.add_scenery((ran_x, ran_y), scene_type);
+    }
+
+    fn add_scenery(&self, location: (f64, f64), scenery_type: SceneryType) {
+        let scenery = Scenery {
+            type_: scenery_type,
+            location: location,
+        };
+        self.scenery.borrow_mut().push(scenery);
+    }
 }
 
 fn main() {
     // Piston game window initialization
     let metrics = Metrics {
-        width: 1500.0,
-        height: 900.0,
+        width: WINDOW_WIDTH,
+        height: WINDOW_HEIGHT,
     };
     let mut window: PistonWindow =
         WindowSettings::new("Hello Piston!", [metrics.width, metrics.height])
@@ -321,7 +376,7 @@ fn main() {
 
         // This checks for user interaction and presses that may adjust the graphics
         if let Some(args) = e.press_args() {
-            if let Some(movement) = on_press(&args) {
+            if let Some(movement) = game.on_press(&args) {
                 println!("Key registered as arrow key, movement: {:?}", movement);
                 println!(
                     "movement successfully unwrapped, current play location: {:?}",
@@ -336,28 +391,5 @@ fn main() {
                 );
             }
         }
-    }
-}
-
-// Handles all press interactions and returns Tuple of (x, y) coordinate changes if character requires movement
-// In the future could return an enum of character reaction, if something different than key arrows was pressed
-fn on_press(args: &Button) -> Option<(f64, f64)> {
-    println!("Entered on_press function");
-    match args {
-        Button::Keyboard(args) => on_key(args),
-        _ => None,
-    }
-}
-
-// Specifically handles keyboard presses and returns tuple of (x, y) coordinate changes for character movement
-// Currently only handling arrow keys
-fn on_key(key: &Key) -> Option<(f64, f64)> {
-    println!("Entered on_key function");
-    match key {
-        Key::Right => Some((1.0, 0.0)),
-        Key::Left => Some((-1.0, 0.0)),
-        Key::Up => Some((0.0, -1.0)),
-        Key::Down => Some((0.0, 1.0)),
-        _ => None,
     }
 }
