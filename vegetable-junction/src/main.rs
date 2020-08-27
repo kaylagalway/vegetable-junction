@@ -20,6 +20,7 @@ const WORLD_SIZE: i32 = WINDOW_SIZE / PIXEL_SIZE as i32;
 const WINDOW_WIDTH: f64 = 1500.0;
 const WINDOW_HEIGHT: f64 = 900.0;
 
+#[derive(Default)]
 struct Metrics {
     width: f64,
     height: f64,
