@@ -1,6 +1,8 @@
 extern crate piston_window;
+extern crate rand;
 
 use piston_window::*;
+use rand::Rng;
 
 type Colour = [f32; 4];
 
@@ -14,7 +16,9 @@ const WINDOW_SIZE: i32 = 512;
 const PIXEL_SIZE: f64 = 32.0;
 const WORLD_SIZE: i32 = WINDOW_SIZE / PIXEL_SIZE as i32;
 
-#[derive(Default)]
+const WINDOW_WIDTH: f64 = 1500.0;
+const WINDOW_HEIGHT: f64 = 900.0;
+
 struct Metrics {
     width: f64,
     height: f64,
@@ -294,13 +298,66 @@ impl<'a> Game<'a> {
         }
         Some((x, y))
     }
+
+    // Handles all press interactions and returns Tuple of (x, y) coordinate changes if character requires movement
+    // In the future could return an enum of character reaction, if something different than key arrows was pressed
+    fn on_press(&self, args: &Button) -> Option<(f64, f64)> {
+        println!("Entered on_press function");
+        match args {
+            Button::Keyboard(args) => self.on_key(args),
+            _ => None,
+        }
+    }
+
+    // Specifically handles keyboard presses and returns tuple of (x, y) coordinate changes for character movement
+    // Currently only handling arrow keys
+    fn on_key(&self, key: &Key) -> Option<(f64, f64)> {
+        println!("Entered on_key function");
+        match key {
+            Key::Right => Some((1.0, 0.0)),
+            Key::Left => Some((-1.0, 0.0)),
+            Key::Up => Some((0.0, -1.0)),
+            Key::Down => Some((0.0, 1.0)),
+            Key::T => {
+                &self.handle_letter(key);
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn handle_letter(&self, key: &Key) {
+        match key {
+            Key::T => {
+                //plant tree in random location on board
+                let mut rng = rand::thread_rng();
+                let ranX = rng.gen_range(0.0, WINDOW_WIDTH);
+                let ranY = rng.gen_range(0.0, WINDOW_HEIGHT);
+                let sceneType = SceneryType::Tree {
+                    base_width: 45.0,
+                    base_height: 120.0,
+                    top_radius: 60.0,
+                };
+                &self.add_scenery((ranX, ranY), sceneType);
+            }
+            _ => {}
+        }
+    }
+
+    fn add_scenery(&self, location: (f64, f64), sceneryType: SceneryType) {
+        let scenery = Scenery {
+            type_: sceneryType,
+            location: location,
+        };
+        self.scenery.push(scenery);
+    }
 }
 
 fn main() {
     // Piston game window initialization
     let metrics = Metrics {
-        width: 1500.0,
-        height: 900.0,
+        width: WINDOW_WIDTH,
+        height: WINDOW_HEIGHT,
     };
     let mut window: PistonWindow =
         WindowSettings::new("Hello Piston!", [metrics.width, metrics.height])
@@ -321,7 +378,7 @@ fn main() {
 
         // This checks for user interaction and presses that may adjust the graphics
         if let Some(args) = e.press_args() {
-            if let Some(movement) = on_press(&args) {
+            if let Some(movement) = game.on_press(&args) {
                 println!("Key registered as arrow key, movement: {:?}", movement);
                 println!(
                     "movement successfully unwrapped, current play location: {:?}",
@@ -336,28 +393,5 @@ fn main() {
                 );
             }
         }
-    }
-}
-
-// Handles all press interactions and returns Tuple of (x, y) coordinate changes if character requires movement
-// In the future could return an enum of character reaction, if something different than key arrows was pressed
-fn on_press(args: &Button) -> Option<(f64, f64)> {
-    println!("Entered on_press function");
-    match args {
-        Button::Keyboard(args) => on_key(args),
-        _ => None,
-    }
-}
-
-// Specifically handles keyboard presses and returns tuple of (x, y) coordinate changes for character movement
-// Currently only handling arrow keys
-fn on_key(key: &Key) -> Option<(f64, f64)> {
-    println!("Entered on_key function");
-    match key {
-        Key::Right => Some((1.0, 0.0)),
-        Key::Left => Some((-1.0, 0.0)),
-        Key::Up => Some((0.0, -1.0)),
-        Key::Down => Some((0.0, 1.0)),
-        _ => None,
     }
 }
