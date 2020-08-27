@@ -332,8 +332,8 @@ impl<'a> Game<'a> {
             Key::T => {
                 //plant tree in random location on board
                 let mut rng = rand::thread_rng();
-                let ranX = rng.gen_range(0.0, WINDOW_WIDTH);
-                let ranY = rng.gen_range(0.0, WINDOW_HEIGHT);
+                let ranX = rng.gen_range(100.0, WINDOW_WIDTH - 100.0);
+                let ranY = rng.gen_range(100.0, WINDOW_HEIGHT - 100.0);
                 let sceneType = SceneryType::Tree {
                     base_width: 45.0,
                     base_height: 120.0,
