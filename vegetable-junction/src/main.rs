@@ -320,35 +320,31 @@ impl<'a> Game<'a> {
             Key::Left => Some((-1.0, 0.0)),
             Key::Up => Some((0.0, -1.0)),
             Key::Down => Some((0.0, 1.0)),
-            Key::T => {
-                &self.handle_letter(key);
+            _ => {
+                if (Key::A..=Key::Z).contains(key) {
+                    self.handle_letter(key)
+                }
                 None
             }
-            _ => None,
         }
     }
 
     fn handle_letter(&self, key: &Key) {
-        match key {
-            Key::T => {
-                //plant tree in random location on board
-                let mut rng = rand::thread_rng();
-                let ranX = rng.gen_range(100.0, WINDOW_WIDTH - 100.0);
-                let ranY = rng.gen_range(100.0, WINDOW_HEIGHT - 100.0);
-                let sceneType = SceneryType::Tree {
-                    base_width: 45.0,
-                    base_height: 120.0,
-                    top_radius: 60.0,
-                };
-                &self.add_scenery((ranX, ranY), sceneType);
-            }
-            _ => {}
-        }
+        //plant tree in random location on board
+        let mut rng = rand::thread_rng();
+        let ran_x = rng.gen_range(100.0, WINDOW_WIDTH - 100.0);
+        let ran_y = rng.gen_range(100.0, WINDOW_HEIGHT - 100.0);
+        let scene_type = SceneryType::Tree {
+            base_width: 45.0,
+            base_height: 120.0,
+            top_radius: 60.0,
+        };
+        &self.add_scenery((ran_x, ran_y), scene_type);
     }
 
-    fn add_scenery(&self, location: (f64, f64), sceneryType: SceneryType) {
+    fn add_scenery(&self, location: (f64, f64), scenery_type: SceneryType) {
         let scenery = Scenery {
-            type_: sceneryType,
+            type_: scenery_type,
             location: location,
         };
         self.scenery.borrow_mut().push(scenery);
